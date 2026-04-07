@@ -4,7 +4,7 @@ import { PredefinedAgendaItem, AgendaItem, User } from '../types';
 import { getPredefinedItems, saveAgenda, getAgenda } from '../store';
 import { calculateStartTimes, cn } from '../lib/utils';
 import html2canvas from 'html2canvas';
-import { Download, Copy, Save, Trash2, ArrowLeft, GripVertical, Check } from 'lucide-react';
+import { Download, Copy, Save, Trash2, ArrowLeft, GripVertical, Check, Table } from 'lucide-react';
 
 interface AgendaBuilderProps {
   user: User;
@@ -28,6 +28,7 @@ export default function AgendaBuilder({ user, initialAgendaId, onBack }: AgendaB
     const today = new Date();
     return today.toISOString().split('T')[0];
   });
+  const [isTemplate, setIsTemplate] = useState(false);
   const [isLoaded, setIsLoaded] = useState(!initialAgendaId);
   const agendaRef = useRef<HTMLDivElement>(null);
 
@@ -48,6 +49,7 @@ export default function AgendaBuilder({ user, initialAgendaId, onBack }: AgendaB
         setAgendaName(existing.name);
         if (existing.date) setAgendaDate(existing.date);
         setAgendaItems(existing.items);
+        setIsTemplate(existing.isTemplate || false);
       }
       setIsLoaded(true);
     }
@@ -63,8 +65,9 @@ export default function AgendaBuilder({ user, initialAgendaId, onBack }: AgendaB
       creatorEmail: user.email,
       items: agendaItems,
       createdAt,
+      isTemplate,
     });
-  }, [agendaItems, agendaName, agendaDate, agendaId, user.email, createdAt, isLoaded]);
+  }, [agendaItems, agendaName, agendaDate, agendaId, user.email, createdAt, isTemplate, isLoaded]);
 
   const onDragEnd = (result: DropResult) => {
     const { source, destination } = result;
@@ -111,7 +114,30 @@ export default function AgendaBuilder({ user, initialAgendaId, onBack }: AgendaB
   const exportPNG = async () => {
     if (!agendaRef.current) return;
     try {
-      const canvas = await html2canvas(agendaRef.current, { scale: 2 });
+      const canvas = await html2canvas(agendaRef.current, { 
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        onclone: (clonedDoc) => {
+          // Replace inputs with divs containing their values for better rendering
+          const inputs = clonedDoc.querySelectorAll('input');
+          inputs.forEach(input => {
+            if (input.type !== 'checkbox' && input.type !== 'radio') {
+              const div = clonedDoc.createElement('div');
+              div.textContent = input.value;
+              div.className = input.className;
+              // Ensure the div looks like text
+              div.style.display = 'flex';
+              div.style.alignItems = 'center';
+              div.style.border = 'none';
+              div.style.background = 'transparent';
+              if (input.parentNode) {
+                input.parentNode.replaceChild(div, input);
+              }
+            }
+          });
+        }
+      });
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = `${agendaName.replace(/\s+/g, '_')}.png`;
@@ -119,6 +145,58 @@ export default function AgendaBuilder({ user, initialAgendaId, onBack }: AgendaB
       link.click();
     } catch (err) {
       console.error('Failed to export PNG', err);
+      alert('Failed to export PNG. Please try again.');
+    }
+  };
+
+  const exportTable = async () => {
+    let html = `
+      <table style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif;">
+        <thead>
+          <tr>
+            <th style="border: 1px solid #ddd; padding: 8px; text-align: left; background-color: #f2f2f2;">Time</th>
+            <th style="border: 1px solid #ddd; padding: 8px; text-align: left; background-color: #f2f2f2;">Duration</th>
+            <th style="border: 1px solid #ddd; padding: 8px; text-align: left; background-color: #f2f2f2;">Session</th>
+            <th style="border: 1px solid #ddd; padding: 8px; text-align: left; background-color: #f2f2f2;">Location</th>
+            <th style="border: 1px solid #ddd; padding: 8px; text-align: left; background-color: #f2f2f2;">Type</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+    
+    let plainText = 'Time\tDuration\tSession\tLocation\tType\n';
+
+    agendaItems.forEach(item => {
+      const time = item.actualStartTime || item.startTime;
+      html += `
+        <tr>
+          <td style="border: 1px solid #ddd; padding: 8px;">${time}</td>
+          <td style="border: 1px solid #ddd; padding: 8px;">${item.duration} min</td>
+          <td style="border: 1px solid #ddd; padding: 8px;"><strong>${item.name}</strong></td>
+          <td style="border: 1px solid #ddd; padding: 8px;">${item.location}</td>
+          <td style="border: 1px solid #ddd; padding: 8px;">${item.type}</td>
+        </tr>
+      `;
+      plainText += `${time}\t${item.duration} min\t${item.name}\t${item.location}\t${item.type}\n`;
+    });
+    
+    html += `
+        </tbody>
+      </table>
+    `;
+
+    try {
+      const blobHtml = new Blob([html], { type: 'text/html' });
+      const blobText = new Blob([plainText], { type: 'text/plain' });
+      const data = [new ClipboardItem({
+        'text/html': blobHtml,
+        'text/plain': blobText,
+      })];
+      await navigator.clipboard.write(data);
+      alert('Table copied to clipboard! You can now paste it directly into Google Docs.');
+    } catch (err) {
+      console.error('Failed to copy table', err);
+      alert('Failed to copy table to clipboard. Your browser might not support this feature.');
     }
   };
 
@@ -155,6 +233,9 @@ export default function AgendaBuilder({ user, initialAgendaId, onBack }: AgendaB
           <span className="text-xs text-gray-500 mr-2 flex items-center">
             <Check className="w-4 h-4 mr-1 text-green-500" /> Auto-saved
           </span>
+          <button onClick={exportTable} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" title="Copy as a table to paste into Google Docs">
+            <Table className="w-4 h-4 mr-2" /> Copy Table
+          </button>
           <button onClick={exportMarkdown} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
             <Copy className="w-4 h-4 mr-2" /> Copy MD
           </button>
@@ -191,6 +272,16 @@ export default function AgendaBuilder({ user, initialAgendaId, onBack }: AgendaB
                       className="text-gray-600 bg-transparent border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 hover:bg-gray-50 transition-colors"
                     />
                     <p className="text-gray-500">Google Cloud Space Munich</p>
+                    <div className="flex-1"></div>
+                    <label className="flex items-center space-x-2 text-sm text-gray-600 cursor-pointer hover:text-gray-900 transition-colors" data-html2canvas-ignore="true">
+                      <input
+                        type="checkbox"
+                        checked={isTemplate}
+                        onChange={(e) => setIsTemplate(e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <span>Make Template</span>
+                    </label>
                   </div>
                 </div>
 

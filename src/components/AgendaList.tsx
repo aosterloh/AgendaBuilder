@@ -13,7 +13,7 @@ interface AgendaListProps {
 
 export default function AgendaList({ user, onCreateNew, onEdit, onOpenAdmin, onLogout }: AgendaListProps) {
   const [agendas, setAgendas] = useState<Agenda[]>([]);
-  const [agendaToDelete, setAgendaToDelete] = useState<string | null>(null);
+  const [agendaToDelete, setAgendaToDelete] = useState<Agenda | null>(null);
 
   const loadAgendas = () => {
     setAgendas(getAgendas().sort((a, b) => b.createdAt - a.createdAt));
@@ -37,7 +37,7 @@ export default function AgendaList({ user, onCreateNew, onEdit, onOpenAdmin, onL
 
   const confirmDelete = () => {
     if (agendaToDelete) {
-      deleteAgenda(agendaToDelete);
+      deleteAgenda(agendaToDelete.id);
       loadAgendas();
       setAgendaToDelete(null);
     }
@@ -114,7 +114,7 @@ export default function AgendaList({ user, onCreateNew, onEdit, onOpenAdmin, onL
                       <Copy className="w-4 h-4" />
                     </button>
                     <button 
-                      onClick={(e) => { e.stopPropagation(); setAgendaToDelete(agenda.id); }} 
+                      onClick={(e) => { e.stopPropagation(); setAgendaToDelete(agenda); }} 
                       className="p-1.5 bg-white shadow-sm border border-gray-200 rounded-md text-gray-600 hover:text-red-600 hover:bg-gray-50 transition-colors"
                       title="Delete Agenda"
                     >
@@ -122,7 +122,12 @@ export default function AgendaList({ user, onCreateNew, onEdit, onOpenAdmin, onL
                     </button>
                   </div>
                   <div className="p-5">
-                    <h3 className="text-lg font-bold text-gray-900 mb-1 truncate">{agenda.name}</h3>
+                    <h3 className="text-lg font-bold text-gray-900 mb-1 truncate flex items-center gap-2">
+                      {agenda.name}
+                      {agenda.isTemplate && (
+                        <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full font-medium">Template</span>
+                      )}
+                    </h3>
                     <p className="text-sm text-gray-500 mb-4">Created by {agenda.creatorEmail}</p>
                     
                     <div className="space-y-2 mb-4">
@@ -168,7 +173,14 @@ export default function AgendaList({ user, onCreateNew, onEdit, onOpenAdmin, onL
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full mx-4">
             <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Agenda?</h3>
-            <p className="text-gray-600 mb-6">Are you sure you want to delete this agenda? This action cannot be undone.</p>
+            {agendaToDelete.isTemplate ? (
+              <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-red-800 font-semibold text-sm mb-1">⚠️ Warning: Template File</p>
+                <p className="text-red-600 text-sm">This is marked as a template, not a normal customer agenda. Are you sure you want to delete it?</p>
+              </div>
+            ) : (
+              <p className="text-gray-600 mb-6">Are you sure you want to delete this agenda? This action cannot be undone.</p>
+            )}
             <div className="flex justify-end space-x-3">
               <button onClick={() => setAgendaToDelete(null)} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md font-medium transition-colors">Cancel</button>
               <button onClick={confirmDelete} className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-md font-medium transition-colors">Delete</button>

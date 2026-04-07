@@ -21,6 +21,7 @@ export interface Agenda {
   creatorEmail: string;
   items: AgendaItem[];
   createdAt: number;
+  isTemplate?: boolean;
 }
 
 export interface User {

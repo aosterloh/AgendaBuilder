@@ -1,13 +1,14 @@
 import { Agenda, PredefinedAgendaItem } from './types';
 
 const INITIAL_ITEMS: PredefinedAgendaItem[] = [
-  { id: '1', name: 'Breakfast', startTime: '08:30', duration: 60, type: 'food', location: 'South Cafe' },
-  { id: '2', name: 'VOC', startTime: '09:30', duration: 30, type: 'content', location: 'Cinema' },
-  { id: '3', name: 'Inspiration', startTime: '10:30', duration: 60, type: 'content', location: 'Cinema' },
-  { id: '4', name: 'Coffee', startTime: '11:15', duration: 15, type: 'food', location: 'MK' },
-  { id: '5', name: 'EC Tour', startTime: '12:00', duration: 60, type: 'EC Tour', location: 'EC' },
+  { id: '1', name: 'Breakfast', duration: 60, type: 'food', location: 'South Cafe' },
+  { id: '2', name: 'VOC', duration: 30, type: 'content', location: 'Cinema' },
+  { id: '3', name: 'Inspiration', duration: 60, type: 'content', location: 'Cinema' },
+  { id: '4', name: 'Coffee', duration: 15, type: 'food', location: 'MK' },
+  { id: '5', name: 'EC Tour', duration: 60, type: 'EC Tour', location: 'EC' },
   { id: '6', name: 'Cloud Content', duration: 60, type: 'content', location: 'EBC room' },
   { id: '7', name: 'Office Transition', duration: 15, type: 'room walk', location: '' },
+  { id: '8', name: 'Lunch', duration: 60, type: 'food', location: 'South Cafe' },
 ];
 
 export const getPredefinedItems = (): PredefinedAgendaItem[] => {
@@ -29,7 +30,17 @@ export const getPredefinedItems = (): PredefinedAgendaItem[] => {
 
 export const savePredefinedItem = (item: PredefinedAgendaItem) => {
   const items = getPredefinedItems();
-  items.push(item);
+  const existingIndex = items.findIndex(i => i.id === item.id);
+  if (existingIndex >= 0) {
+    items[existingIndex] = item;
+  } else {
+    items.push(item);
+  }
+  localStorage.setItem('predefinedItems', JSON.stringify(items));
+};
+
+export const deletePredefinedItem = (id: string) => {
+  const items = getPredefinedItems().filter(i => i.id !== id);
   localStorage.setItem('predefinedItems', JSON.stringify(items));
 };
 
